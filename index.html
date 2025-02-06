@@ -1,7 +1,420 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Teknik Komputer & Jaringan</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        #game-container {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #crossword-grid {
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .cell {
+            width: 35px;
+            height: 35px;
+            border: 1px solid #ddd;
+            text-align: center;
+            vertical-align: middle;
+            position: relative;
+            cursor: pointer;
+            background-color: white;
+            transition: background-color 0.3s;
+        }
+
+        .cell.correct {
+            background-color: #c8e6c9;
+        }
+
+        .cell.active {
+            background-color: #fff9c4;
+        }
+
+        .clue-display {
+            flex: 1;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .question-number {
+            position: absolute;
+            top: 2px;
+            left: 3px;
+            font-size: 0.6em;
+            color: #666;
+        }
+
+        #score-display {
+            font-weight: bold;
+            margin: 10px 0;
+            color: #2e7d32;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #1b5e20;
+        }
+
+        input[type="text"] {
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .hidden {
+            display: none;
+        }
+           /* Tambahan untuk Responsif */
+        @media (max-width: 768px) {
+            #game-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .cell {
+                width: 25px;
+                height: 25px;
+                font-size: 0.8em;
+            }
+            
+            .question-number {
+                font-size: 0.5em;
+            }
+            
+            .clue-display {
+                order: -1;
+                margin-bottom: 15px;
+            }
+            
+            .input-section {
+                flex-direction: column;
+            }
+            
+            button {
+                padding: 12px;
+                width: 100%;
+            }
+            
+            input[type="text"] {
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            
+            .cell {
+                width: 20px;
+                height: 20px;
+                font-size: 0.7em;
+            }
+            
+            #current-clue {
+                font-size: 0.9em;
+            }
+            
+            #score-display {
+                font-size: 0.9em;
+            }
+        }
+
+        /* Mobile Landscape */
+        @media (max-height: 480px) and (orientation: landscape) {
+            #game-container {
+                flex-direction: row;
+            }
+            
+            .cell {
+                width: 20px;
+                height: 20px;
+            }
+            
+            .clue-display {
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+        }
+
+        
+        .cell.preview {
+    background-color: #f0f0f0;
+    color: #666;
+    cursor: not-allowed;
+}
+
+        .cell.preview.correct {
+    background-color: #c8e6c9;
+}
+
+    .cell.unused {
+        background-color: #ddd;
+        border: none;
+        pointer-events: none;
+    }
+    </style>
+    
+</head>
 <body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
+    <div class="input-section">
+        <input type="text" id="name-input" placeholder="Masukkan nama Anda">
+        <button onclick="startGame()">Mulai Permainan</button>
+    </div>
+    
+    <div id="game-container" class="hidden">
+        <div>
+            <div id="score-display"></div>
+            <table id="crossword-grid"></table>
+        </div>
+        
+        <div class="clue-display">
+            <h3>Pertanyaan Saat Ini:</h3>
+            <div id="current-clue"></div>
+            <input type="text" id="answer-input" class="hidden">
+            <button onclick="checkAnswer()" class="hidden">Cek Jawaban</button>
+        </div>
+    </div>
+
+<script>
+        let playerName = "";
+        let score = 0;
+        let currentClue = null;
+        const gridSize = 18;
+
+        // Daftar Soal
+        const horizontalQuestions = [
+            { number: 1, clue: "Media kabel yang menggunakan serat kaca atau plastik untuk mentransmisikan data dalam bentuk cahaya.", answer: "FIBEROPTIK", row: 3, col: 2, direction: "horizontal" },
+            { number: 2, clue: "Kabel jaringan yang terdiri dari dua kawat konduktor yang dipelintir bersama untuk mengurangi gangguan elektromagnetik.", answer: "UTP", row: 5, col: 4, direction: "horizontal" },
+            { number: 3, clue: "Jaringan yang mencakup wilayah geografis yang luas seperti antar kota atau negara. ", answer: "WAN", row: 5, col: 10, direction: "horizontal" },
+            { number: 4, clue: "Gelombang elektromagnetik yang digunakan dalam penyiaran radio dan televisi.", answer: "RADIO", row: 8, col: 0, direction: "horizontal" },
+            { number: 5, clue: "Media jaringan komputer yang tidak memerlukan kabel fisik", answer: "WIRELESS", row: 10, col: 7, direction: "horizontal" },
+            { number: 6, clue: "Jenis komunikasi yang membutuhkan garis pandang langsung, sering digunakan dalam antena parabola.", answer: "MICROWAVE", row: 13, col: 5, direction: "horizontal" },
+            { number: 7, clue: "Jaringan yang menghubungkan perangkat dalam satu ruangan atau gedung.", answer: "LAN", row: 14, col: 13, direction: "horizontal" },
+                       
+        ];
+
+        const verticalQuestions = [
+            { number: 9, clue: "Teknologi nirkabel yang menggunakan gelombang radio untuk komunikasi jarak pendek, sering digunakan untuk transfer file antar perangkat.", answer: "BLUETOOTH", row: 3, col: 4, direction: "vertical" },
+            { number: 10, clue: "Perangkat yang digunakan untuk memperkuat sinyal dalam jaringan kabel agar dapat menjangkau jarak lebih jauh.", answer: "REPEATER", row: 1, col: 8, direction: "vertical" },
+            { number: 11, clue: "Jenis kabel yang memiliki inti tembaga dikelilingi oleh isolator dan pelindung logam, digunakan untuk TV kabel dan CCTV.", answer: "KOAKSIAL", row: 3, col: 11, direction: "vertical" },
+            { number: 12, clue: "Sinyal yang digunakan oleh remote control untuk mentransmisikan data.", answer: "INFRARED", row: 10, col: 8, direction: "vertical" },
+            { number: 13, clue: "Sistem komunikasi yang menggunakan satelit untuk mentransmisikan sinyal dari satu titik ke titik lain di bumi.", answer: "SATELIT", row: 10, col: 13, direction: "vertical" },
+            
+        ];
+
+        function initializeGame() {
+            createGrid();
+        }
+
+        function createGrid() {
+            const grid = document.getElementById('crossword-grid');
+            grid.innerHTML = '';
+            
+            for(let i = 0; i < gridSize; i++) {
+                const row = document.createElement('tr');
+                for(let j = 0; j < gridSize; j++) {
+                    const cell = document.createElement('td');
+                    cell.className = 'cell';
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    
+                    // Cari pertanyaan yang sesuai
+                    const question = [...horizontalQuestions, ...verticalQuestions].find(q => 
+                        (q.direction === 'horizontal' && i === q.row && j >= q.col && j < q.col + q.answer.length) ||
+                        (q.direction === 'vertical' && j === q.col && i >= q.row && i < q.row + q.answer.length)
+                    );
+                    
+                    // Tandai sel pertama pertanyaan
+                    if(question && i === question.row && j === question.col) {
+                        const numberSpan = document.createElement('span');
+                        numberSpan.className = 'question-number';
+                        numberSpan.textContent = question.number;
+                        cell.appendChild(numberSpan);
+                    }
+                    
+                    cell.onclick = handleCellClick;
+                    row.appendChild(cell);
+                }
+                grid.appendChild(row);
+            }
+        }
+
+        function handleCellClick(event) {
+            const cell = event.target.closest('td');
+            document.querySelectorAll('.cell').forEach(c => c.classList.remove('active'));
+            cell.classList.add('active');
+            
+            const row = parseInt(cell.dataset.row);
+            const col = parseInt(cell.dataset.col);
+            
+            // Cari pertanyaan yang sesuai
+            currentClue = [...horizontalQuestions, ...verticalQuestions].find(q => 
+                (q.direction === 'horizontal' && row === q.row && col >= q.col && col < q.col + q.answer.length) ||
+                (q.direction === 'vertical' && col === q.col && row >= q.row && row < q.row + q.answer.length)
+            );
+
+            if(currentClue) {
+                document.getElementById('current-clue').textContent = `${currentClue.number}. ${currentClue.clue}`;
+                document.getElementById('answer-input').classList.remove('hidden');
+                document.querySelector('button[onclick="checkAnswer()"]').classList.remove('hidden');
+            }
+        }
+
+        function checkAnswer() {
+            const userAnswer = document.getElementById('answer-input').value.toUpperCase().trim();
+            
+            if(userAnswer === currentClue.answer) {
+                fillAnswer(currentClue);
+                score += 10;
+                updateScore();
+                showFeedback(true);
+            } else {
+                showFeedback(false);
+            }
+            
+            resetInput();
+        }
+
+        function fillAnswer(question) {
+            const letters = question.answer.split('');
+            let row = question.row;
+            let col = question.col;
+            
+            for(let i = 0; i < letters.length; i++) {
+                const cell = document.querySelector(
+                    `td[data-row="${row}"][data-col="${col}"]`
+                );
+                cell.textContent = letters[i];
+                cell.classList.add('correct');
+                
+                question.direction === 'horizontal' ? col++ : row++;
+            }
+        }
+
+        function showFeedback(isCorrect) {
+            const feedback = document.createElement('div');
+            feedback.textContent = isCorrect ? '🎉 Jawaban Benar!' : '❌ Jawaban Salah!';
+            feedback.style.color = isCorrect ? 'green' : 'red';
+            feedback.style.marginTop = '10px';
+            
+            const clueDisplay = document.querySelector('.clue-display');
+            clueDisplay.appendChild(feedback);
+            
+            setTimeout(() => feedback.remove(), 2000);
+        }
+
+        function resetInput() {
+            document.getElementById('answer-input').value = '';
+            document.getElementById('answer-input').classList.add('hidden');
+            document.querySelector('button[onclick="checkAnswer()"]').classList.add('hidden');
+        }
+
+        function startGame() {
+            playerName = document.getElementById('name-input').value.trim();
+            if(!playerName) {
+                alert("Silakan masukkan nama terlebih dahulu!");
+                return;
+            }
+            
+            document.querySelector('.input-section').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+            initializeGame();
+            updateScore();
+        }
+
+        function updateScore() {
+            document.getElementById('score-display').textContent = 
+                `Pemain: ${playerName} | Skor: ${score}`;
+        }
+        
+            function isCellUsed(row, col) {
+        // Cek pertanyaan horizontal
+        for (const q of horizontalQuestions) {
+            if (q.row === row && col >= q.col && col < q.col + q.answer.length) {
+                return true;
+            }
+        }
+        // Cek pertanyaan vertikal
+        for (const q of verticalQuestions) {
+            if (q.col === col && row >= q.row && row < q.row + q.answer.length) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function createGrid() {
+        const grid = document.getElementById('crossword-grid');
+        grid.innerHTML = '';
+        
+        for(let i = 0; i < gridSize; i++) {
+            const row = document.createElement('tr');
+            for(let j = 0; j < gridSize; j++) {
+                const cell = document.createElement('td');
+                cell.className = 'cell';
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+                
+                // Cek apakah sel ini tidak digunakan
+                if (!isCellUsed(i, j)) {
+                    cell.classList.add('unused');
+                    cell.onclick = null; // Nonaktifkan klik
+                } else {
+                    const startingQuestions = [...horizontalQuestions, ...verticalQuestions]
+                        .filter(q => q.row === i && q.col === j);
+                    
+                    if(startingQuestions.length > 0) {
+                        const numberSpan = document.createElement('div');
+                        numberSpan.className = 'question-number';
+                        numberSpan.innerHTML = startingQuestions.map(q => q.number).join(', ');
+                        cell.appendChild(numberSpan);
+                    }
+                    cell.onclick = handleCellClick;
+                }
+                
+                row.appendChild(cell);
+            }
+            grid.appendChild(row);
+        }
+    }
+    </script>
+
 </body>
 </html>
